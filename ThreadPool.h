@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 #include <future>
+#include <queue>
+
 
 using Res = std::string;    /// 任务的返回类型
 using Functor = std::function<Res()>;   /// 任务类型
@@ -52,10 +54,13 @@ public:
     auto operator=(const ThreadTask &) = delete;
 };
 
+using TaskPtr = std::shared_ptr<ThreadTask>;
+using TaskPack = std::pair<int,TaskPtr>;
+
 class Thread {
 private:
     std::thread thread;
-    std::vector<std::shared_ptr<ThreadTask>> tasks;
+    std::vector<TaskPtr> tasks;
     bool running;
     ThreadPool *owner;
 
@@ -88,7 +93,7 @@ class ThreadPool {
 private:
     std::condition_variable cond;
     std::mutex func_mtx;
-    std::vector<std::shared_ptr<ThreadTask>> tasks;
+    std::priority_queue<TaskPack,std::vector<TaskPack>,std::less<>> tasks;
     std::vector<std::unique_ptr<Thread>> threads;
 
     friend Thread::Thread(ThreadPool *threadPool);
@@ -97,12 +102,13 @@ private:
 
     void waitForTask();
 
-    std::vector<std::shared_ptr<ThreadTask>> assignTask();
+    std::vector<TaskPtr> assignTask();
 
 public:
     explicit ThreadPool(int thread_nums);
 
-    std::shared_ptr<TaskResult> addTask(Functor functor);
+    /// 优先级越高，越容易被调度
+    std::shared_ptr<TaskResult> addTask(Functor functor,int priority = 0);
 
     ~ThreadPool() = default;
 

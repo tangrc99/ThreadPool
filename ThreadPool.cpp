@@ -38,8 +38,8 @@ std::vector<std::shared_ptr<ThreadTask>> ThreadPool::assignTask() {
     for (int i = 0; i < 3; i++) {
         if (tasks.empty())
             return res;
-        res.emplace_back(tasks.back());
-        tasks.pop_back();
+        res.emplace_back(tasks.top().second);
+        tasks.pop();
     }
     return res;
 }
@@ -49,11 +49,11 @@ void ThreadPool::waitForTask() {
     cond.wait(lk, []() { return true; });
 }
 
-std::shared_ptr<TaskResult> ThreadPool::addTask(Functor functor) {
+std::shared_ptr<TaskResult> ThreadPool::addTask(Functor functor, int priority) {
     auto task = std::make_shared<ThreadTask>(std::move(functor));
     {
         std::unique_lock<std::mutex> lk(func_mtx);
-        tasks.emplace_back(task);
+        tasks.emplace(priority, task);
         cond.notify_all();
     }
     return std::make_shared<TaskResult>(task);
